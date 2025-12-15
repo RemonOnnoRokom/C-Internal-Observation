@@ -10,10 +10,8 @@ namespace JIT
             CalledTwiceWatchTheDifference jit = new();
             jit.CalledTwiceTest();
 
-            //TwoMethodCalledOneWatchTheDifference jit2 = new();
-            //jit2.CalledOne();
-
-            //BenchmarkRunner.Run<BenchMark>();
+            TwoMethodCalledOneWatchTheDifference jit2 = new();
+            jit2.CalledOne();
 
             //BenchMark jit3 = new();
             //jit3.WatchTheBenchMark();
