@@ -36,7 +36,19 @@ namespace ThreadPool
 
         private void InitializeThreadPool()
         {
-            //TODO: write initialization code here 
+            //TODO: write implementation code here
         }
+
+        //#region public interface
+        public ClientHandle QueueUserTask(UserTask task, Action<TaskStatus> callback)
+        {
+            throw new Exception("not implemented yet.");
+        }
+
+        public static void CancelUserTask(ClientHandle handle)
+        {
+            //TODO: write implementation code here
+        }
+        //#endregion
     }
 }

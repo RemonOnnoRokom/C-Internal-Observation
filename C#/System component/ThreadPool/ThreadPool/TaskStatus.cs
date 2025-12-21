@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace ThreadPool
 {
     public delegate void UserTask();
+
     public class TaskStatus
     {
         public bool Success = true;
