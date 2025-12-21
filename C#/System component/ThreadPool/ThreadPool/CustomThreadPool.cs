@@ -15,7 +15,7 @@ namespace ThreadPool
         private const int MAX_WAIT = 15000; // milliseconds - threshold for simple task
         private const int CLEANUP_INTERVAL = 60000; // millisecond - to free waiting threads in pool
         private const int SCHEDULING_INTERVAL = 10; // millisecond - look for task in queue in loop
-                                                    //#endregion
+        //#endregion
 
         //#region singleton instance of threadpool
         private static readonly CustomThreadPool _instance = new CustomThreadPool();
