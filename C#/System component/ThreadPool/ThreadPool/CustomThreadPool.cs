@@ -15,6 +15,9 @@ namespace ThreadPool
         private const int MAX_WAIT = 15000; // milliseconds - threshold for simple task
         private const int CLEANUP_INTERVAL = 60000; // millisecond - to free waiting threads in pool
         private const int SCHEDULING_INTERVAL = 10; // millisecond - look for task in queue in loop
+        private Queue<TaskHandle> ReadyQueue = null;
+        private List<TaskItem> Pool = null;
+        private Thread taskScheduler = null;
         //#endregion
 
         //#region singleton instance of threadpool
@@ -36,7 +39,13 @@ namespace ThreadPool
 
         private void InitializeThreadPool()
         {
-            //TODO: write implementation code here
+            ReadyQueue = new Queue<TaskHandle>();
+            Pool = new List<TaskItem>();
+            taskScheduler = new Thread(() =>
+            {
+                //TODO: write scheduling logic here
+            });
+            taskScheduler.Start();
         }
 
         //#region public interface
