@@ -17,8 +17,14 @@ namespace ThreadPool
 
     public class TaskHandle
     {
-        public ClientHandle Token;              // generate this everytime an usertask is queued and return to the caller as a reference. 
-        public UserTask task;                   // the item to be queued - supplied by the caller
-        public Action<TaskStatus> callback;     // optional - in case user want's a notification of completion
+        public ClientHandle Token { get; set; }              // generate this everytime an usertask is queued and return to the caller as a reference. 
+        public UserTask Task { get; set; }                   // the item to be queued - supplied by the caller
+        public Action<TaskStatus> Callback { get; set; }     // optional - in case user want's a notification of completion
+
+        public TaskHandle()
+        {
+            Callback = null;
+            Task = null;
+        }
     }
 }

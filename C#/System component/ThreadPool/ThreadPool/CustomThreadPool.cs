@@ -8,13 +8,13 @@ namespace ThreadPool
 {
     public class CustomThreadPool : ICustomThreadPool
     {
-        #region configurable items - for demo let's have these as constants
-        private const int MAX = 8;                    // maximum no of threads in pool
-        private const int MIN = 3;                    // minimum no of threads in pool
-        private const int MIN_WAIT = 10;             // milliseconds
-        private const int MAX_WAIT = 15000;          // milliseconds - threshold for simple task
-        private const int CLEANUP_INTERVAL = 60000; // millisecond - to free waiting threads in pool
-        private const int SCHEDULING_INTERVAL = 10; // millisecond - look for task in queue in loop
+        #region configurable state - for demo let's have these as constants
+        private const int MAX = 8;                      // maximum no of threads in pool
+        private const int MIN = 3;                      // minimum no of threads in pool
+        private const int MIN_WAIT = 10;                // milliseconds
+        private const int MAX_WAIT = 15000;             // milliseconds - threshold for simple task
+        private const int CLEANUP_INTERVAL = 60000;     // millisecond - to free waiting threads in pool
+        private const int SCHEDULING_INTERVAL = 10;      // millisecond - look for task in queue in loop
         private Queue<TaskHandle> ReadyQueue = null;
         private List<TaskItem> Pool = null;
         private Thread taskScheduler = null;
@@ -36,57 +36,84 @@ namespace ThreadPool
             }
         }
         #endregion
+       
+        #region public interface
+        public ClientHandle QueueUserTask(UserTask task, Action<TaskStatus> callback)
+        {
+            TaskHandle th = new TaskHandle()
+            {
+                Task = task,
+                Token = new ClientHandle(),
+                //{
+                //    ID = Guid.NewGuid()
+                //},
+                Callback = callback
+            };
 
+            ReadyQueue.Enqueue(th);
+
+            return th.Token;
+        }
+
+        public static void CancelUserTask(ClientHandle handle)
+        {
+            //TODO: write implementation code here
+        }
+        #endregion
+
+        #region Helper methods
         private void InitializeThreadPool()
         {
             ReadyQueue = new Queue<TaskHandle>();
             Pool = new List<TaskItem>();
-            InitPoolWithMinCapacity(); // initialize Pool with Minimum capacity - that much thread must be kept ready
+            InitPoolWithMinCapacity();                   // initialize Pool with Minimum capacity - that much thread must be kept ready
 
-            DateTime LastCleanup = DateTime.Now; // monitor this time for next cleaning activity
+            DateTime LastCleanup = DateTime.Now;        // monitor this time for next cleaning activity
 
             taskScheduler = new Thread(() =>
             {
                 do
                 {
-                    while (ReadyQueue.Count > 0 && ReadyQueue.Peek().task == null)
-                        ReadyQueue.Dequeue();
-                    // remove cancelled item/s - cancelled item will have it's task set to null
+                    while (ReadyQueue.Count > 0 && ReadyQueue.Peek().Task == null)
+                        ReadyQueue.Dequeue();         // remove cancelled item/s - cancelled item will have it's task set to null
 
                     int itemCount = ReadyQueue.Count;
                     for (int i = 0; i < itemCount; i++)
                     {
-                        TaskHandle readyItem = ReadyQueue.Peek(); // the Top item of queue
+                        TaskHandle readyItem = ReadyQueue.Peek();   // the Top item of queue
                         bool Added = false;
 
-                        foreach (TaskItem ti in Pool)
+                        foreach (TaskItem task in Pool)
                         {
-                            if (ti.taskState == TaskState.Completed)
+                            if (task.TaskState == TaskState.Completed)
                             {
-                                // if in the Pool task state is completed then a different
+                                // if in the Pool task state is completed then a different TaskHandle
                                 // task can be handed over to that thread
-                                ti.taskHandle = readyItem;
-                                ti.taskState = TaskState.Pending;
+
+                                task.TaskHandle = readyItem;
+                                task.TaskState = TaskState.Pending;
                                 Added = true;
                                 ReadyQueue.Dequeue();
                                 break;
                             }
                         }
-                        if (!Added && Pool.Count < MAX)
+
+                        if (Added == false && Pool.Count < MAX)
                         {
                             // if all threads in pool are busy and the count is still less than the
                             // Max limit set then create a new thread and add that to pool
-                            TaskItem ti = new TaskItem() { taskState = TaskState.Pending };
-                            ti.taskHandle = readyItem;
+                            TaskItem taskItem = new TaskItem();
+                            taskItem.TaskHandle = readyItem;
                             // add a new TaskItem in the pool
-                            AddTaskToPool(ti);
+                            AddTaskToPool(taskItem);
                             Added = true;
                             ReadyQueue.Dequeue();
                         }
-                        if (!Added) break; // It's already crowded so try after sometime
+
+                        if (!Added)
+                            break; // It's already crowded so try after sometime
                     }
-                    if ((DateTime.Now - LastCleanup) > TimeSpan.FromMilliseconds(CLEANUP_INTERVAL))
-                    // It's long time - so try to cleanup Pool once.
+                    if ((DateTime.Now - LastCleanup) > TimeSpan.FromMilliseconds(CLEANUP_INTERVAL))  // It's long time - so try to cleanup Pool once.
                     {
                         CleanupPool();
                         LastCleanup = DateTime.Now;
@@ -109,17 +136,18 @@ namespace ThreadPool
         {
             for (int i = 0; i <= MIN; i++)
             {
-                TaskItem ti = new TaskItem() { taskState = TaskState.Pending };
-                ti.taskHandle = new TaskHandle() { task = () => { } };
-                ti.taskHandle.callback = (taskStatus) => { };
-                ti.taskHandle.Token = new ClientHandle() { ID = Guid.NewGuid() };
-                AddTaskToPool(ti);
+                TaskItem taskItem = new TaskItem();
+                taskItem.TaskHandle = new TaskHandle();
+                taskItem.TaskHandle.Callback = (taskStatus) => { };
+                taskItem.TaskHandle.Token = new ClientHandle();
+
+                AddTaskToPool(taskItem);
             }
         }
 
         private void AddTaskToPool(TaskItem taskItem)
         {
-            taskItem.handler = new Thread(() =>
+            taskItem.Handler = new Thread(() =>
             {
                 do
                 {
@@ -127,20 +155,22 @@ namespace ThreadPool
 
                     // if aborted then allow it to exit the loop so that it can complete and free-up thread resource.
                     // this state means it has been removed from Pool already.
-                    if (taskItem.taskState == TaskState.Canceled) break;
+                    if (taskItem.TaskState == TaskState.Canceled)
+                        break;
 
-                    if (taskItem.taskState == TaskState.Pending)
+                    if (taskItem.TaskState == TaskState.Pending)
                     {
-                        taskItem.taskState = TaskState.InProgress;
-                        taskItem.startTime = DateTime.Now;
+                        taskItem.TaskState = TaskState.InProgress;
+                        taskItem.StartTime = DateTime.Now;
                         Enter = true;
                     }
+
                     if (Enter)
                     {
                         TaskStatus taskStatus = new TaskStatus();
                         try
                         {
-                            taskItem.taskHandle.task.Invoke(); // execute the UserTask
+                            taskItem.TaskHandle.Task.Invoke(); // execute the UserTask
                             taskStatus.Success = true;
                         }
                         catch (Exception ex)
@@ -148,14 +178,15 @@ namespace ThreadPool
                             taskStatus.Success = false;
                             taskStatus.InnerException = ex;
                         }
-                        if (taskItem.taskHandle.callback != null && taskItem.taskState != TaskState.Canceled)
+
+                        if (taskItem.TaskHandle.Callback != null && taskItem.TaskState != TaskState.Canceled)
                         {
                             try
                             {
-                                taskItem.taskState = TaskState.Completed;
-                                taskItem.startTime = DateTime.MaxValue;
+                                taskItem.TaskState = TaskState.Completed;
+                                taskItem.StartTime = DateTime.MaxValue;
 
-                                taskItem.taskHandle.callback(taskStatus); // notify callback with task-status
+                                taskItem.TaskHandle.Callback(taskStatus); // notify callback with task-status
                             }
                             catch
                             {
@@ -163,38 +194,20 @@ namespace ThreadPool
                             }
                         }
                     }
+
                     // give other thread a chance to execute as it's current execution completed already
-                    Thread.Yield(); Thread.Sleep(MIN_WAIT); //TODO: need to see if Sleep is required here
-                } while (true); // it's a continuous loop until task gets abort request
+                    Thread.Yield();
+                    Thread.Sleep(MIN_WAIT);         //TODO: need to see if Sleep is required here
+
+                } while (true);                     // it's a continuous loop until task gets abort request
             });
-            taskItem.handler.Start();
+            taskItem.Handler.Start();
             Pool.Add(taskItem);
         }
 
         private void CleanupPool()
         {
             throw new NotImplementedException();
-        }
-
-        #region public interface
-        public ClientHandle QueueUserTask(UserTask task, Action<TaskStatus> callback)
-        {
-            TaskHandle th = new TaskHandle()
-            {
-                task = task,
-                Token = new ClientHandle()
-                {
-                    ID = Guid.NewGuid()
-                },
-                callback = callback
-            };
-            ReadyQueue.Enqueue(th);
-            return th.Token;
-        }
-
-        public static void CancelUserTask(ClientHandle handle)
-        {
-            //TODO: write implementation code here
         }
         #endregion
     }

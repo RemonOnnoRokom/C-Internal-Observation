@@ -8,7 +8,13 @@ namespace ThreadPool
 {
     public class ClientHandle
     {
-        public Guid ID;
-        public bool IsSimpleTask = false;
+        public Guid ID { get; set; }
+        public bool IsSimpleTask { get; set; }
+
+        public ClientHandle()
+        {
+            ID = Guid.NewGuid();
+            IsSimpleTask = true;
+        }
     }
 }
